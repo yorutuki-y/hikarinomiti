@@ -23,10 +23,13 @@
         
         #ui { position: absolute; top: 20px; left: 20px; pointer-events: none; z-index: 100; }
         #scoreBoard { font-size: 26px; font-weight: bold; text-shadow: 0 0 10px #0ff; letter-spacing: 2px; }
+        #timeBoard { font-size: 18px; font-weight: bold; text-shadow: 0 0 8px #0ff; margin-top: 5px; color: #b2ebf2; letter-spacing: 1px; }
         
         .top-controls {
             position: absolute; top: 20px; right: 20px; 
             display: flex; gap: 10px; z-index: 100; pointer-events: auto; align-items: center;
+            flex-wrap: wrap; justify-content: flex-end; max-width: 70%;
+            transition: opacity 0.3s;
         }
 
         .zoom-controls {
@@ -68,9 +71,10 @@
 
     <div id="ui">
         <div id="scoreBoard">Score: <span id="score">0</span></div>
+        <div id="timeBoard">Time: <span id="time">0.0</span>s</div>
     </div>
     
-    <div class="top-controls">
+    <div id="topControls" class="top-controls">
         <div class="zoom-controls">
             <button id="zoomOutBtn" class="zoomBtn">－</button>
             <span id="zoomLabel">100%</span>
@@ -78,6 +82,7 @@
         </div>
         <button id="qualityBtn" class="controlBtn">高画質モード</button>
         <button id="fullscreenBtn" class="controlBtn">全画面</button>
+        <button id="shareBtn" class="controlBtn">共有</button>
     </div>
     
     <div id="warning">METEOR SHOWER COMING...</div>
@@ -94,6 +99,15 @@
         <button id="resumeBtn" class="actionBtn">RESUME</button>
     </div>
 
+    <div id="shareModal" class="overlay hidden" style="z-index: 150;">
+        <div style="background: rgba(5, 5, 16, 0.95); padding: 30px; border-radius: 20px; border: 2px solid #00e5ff; text-align: center; box-shadow: 0 0 30px rgba(0,229,255,0.5); max-width: 90%; width: 280px;">
+            <h2 style="color: #00e5ff; margin: 0 0 10px 0; font-size: 24px; text-shadow: 0 0 10px #0ff;">ゲームを共有</h2>
+            <img src="QR.png" alt="QRコード" style="width: 200px; height: 200px; border-radius: 10px; margin: 15px 0; background: white; padding: 5px;">
+            <p style="font-size: 14px; color: #b2ebf2; margin: 0 0 20px 0; line-height: 1.4;">このQRコードをスキャンして<br>ゲームをシェアしよう！</p>
+            <button id="closeShareBtn" class="actionBtn" style="padding: 8px 25px; font-size: 16px; border-radius: 20px;">閉じる</button>
+        </div>
+    </div>
+
     <canvas id="gameCanvas"></canvas>
 
     <script>
@@ -101,9 +115,13 @@
         const ctx = canvas.getContext('2d');
         const warningEl = document.getElementById('warning');
         const pauseScreen = document.getElementById('pauseScreen');
+        const topControls = document.getElementById('topControls');
+        const shareModal = document.getElementById('shareModal');
+        const timeEl = document.getElementById('time');
         
         let animId;
         let score = 0;
+        let survivalFrames = 0; // 生存フレーム数
         let isPlaying = false;
         let isPaused = false;
         let isHighQuality = true;
@@ -128,6 +146,15 @@
         }
         window.addEventListener('resize', resize);
         resize();
+
+        // プレイ中のみメニューを非表示にする制御関数
+        function updateControlsVisibility() {
+            if (isPlaying && !isPaused) {
+                topControls.classList.add('hidden');
+            } else {
+                topControls.classList.remove('hidden');
+            }
+        }
 
         document.getElementById('zoomInBtn').addEventListener('click', () => {
             zoomLevel = Math.min(2.0, zoomLevel + 0.25);
@@ -174,6 +201,14 @@
 
         document.getElementById('startBtn').addEventListener('click', startGame);
         document.getElementById('resumeBtn').addEventListener('click', togglePause);
+        
+        // 共有モーダルのイベント
+        document.getElementById('shareBtn').addEventListener('click', () => {
+            shareModal.classList.remove('hidden');
+        });
+        document.getElementById('closeShareBtn').addEventListener('click', () => {
+            shareModal.classList.add('hidden');
+        });
 
         document.getElementById('qualityBtn').addEventListener('click', () => {
             isHighQuality = !isHighQuality;
@@ -192,6 +227,11 @@
 
         window.addEventListener('keydown', e => {
             if ((e.key === 'Escape' || e.key === ' ') && isPlaying) {
+                // 共有画面が開いている時は、再開せずまず共有画面を閉じる
+                if (!shareModal.classList.contains('hidden')) {
+                    shareModal.classList.add('hidden');
+                    return;
+                }
                 e.preventDefault(); 
                 togglePause();
             }
@@ -200,6 +240,7 @@
         function togglePause() {
             if (!isPlaying) return; 
             isPaused = !isPaused;
+            updateControlsVisibility(); // メニュー表示更新
             if (isPaused) {
                 pauseScreen.classList.remove('hidden');
                 cancelAnimationFrame(animId); 
@@ -284,7 +325,6 @@
             const x = cx + Math.cos(angle + Math.PI/2) * offsetDist;
             const y = cy + Math.sin(angle + Math.PI/2) * offsetDist;
 
-            // 【修正】初期幅を従来より細くし、さらにスコアが上がるほど少しずつ細くする（最小値40）
             const mwWidth = Math.max(40, 140 - Math.floor(score / 200) * 12);
             const colorType = Math.random() < 0.5 ? 'blue' : 'yellow';
 
@@ -338,33 +378,36 @@
             }
         }
 
-        // 【修正】スコアを-1000するコスト制に変更 ＆ 爆発（衝撃波）の範囲を小さめに調整
         function handlePlayerHit() {
             if (score >= 1000) {
-                score -= 1000; // スコアを1000消費
-                document.getElementById('score').innerText = score; // UIのスコア表示を更新
+                score -= 1000; 
+                document.getElementById('score').innerText = score; 
                 
-                player.invincibleTimer = 120; // 約2秒間の無敵判定をセット
+                player.invincibleTimer = 120; 
                 shockwave.active = true;
                 shockwave.x = player.x;
                 shockwave.y = player.y;
                 shockwave.radius = 0;
-                shockwave.maxRadius = Math.max(gameWidth, gameHeight) * 0.4; // 最大半径を従来の1.2倍から0.4倍へ小さく修正
+                shockwave.maxRadius = Math.max(gameWidth, gameHeight) * 0.4; 
                 
                 for (let k = 0; k < 5; k++) {
                     spawnTargetAround(player.x, player.y);
                 }
                 
-                milkyWays = []; // 天の川を緊急全消去
+                milkyWays = []; 
                 createParticles(player.x, player.y, '#00e5ff', 30);
-                return true; // 復活成功
+                return true; 
             }
             gameOver();
-            return false; // ゲームオーバー
+            return false; 
         }
 
         function update() {
             if (!isPlaying || isPaused) return;
+
+            // 生存時間の加算とUI描画 (1秒=60フレーム換算)
+            survivalFrames++;
+            timeEl.innerText = (survivalFrames / 60).toFixed(1);
 
             if (player.invincibleTimer > 0) player.invincibleTimer--;
 
@@ -381,7 +424,7 @@
                 ctx.beginPath();
                 ctx.arc(shockwave.x, shockwave.y, shockwave.radius, 0, Math.PI * 2);
                 ctx.strokeStyle = `rgba(0, 229, 255, ${1 - shockwave.radius / shockwave.maxRadius})`;
-                ctx.lineWidth = 15; // 爆発サイズに合わせて線の太さも少しシャープに
+                ctx.lineWidth = 15; 
                 ctx.stroke();
 
                 for (let i = enemies.length - 1; i >= 0; i--) {
@@ -412,7 +455,6 @@
             }
 
             if (milkyWayTimer > 700 && !isMeteorShower && eventTimer < 490) { 
-                // 【修正】天の川の出現数を増加（ベース3本、スコアが上がるほどさらに増加）
                 const mwCount = 3 + Math.floor(score / 200); 
                 for(let k = 0; k < mwCount; k++){
                     spawnMilkyWay(); 
@@ -436,7 +478,6 @@
                 if (meteorSpawnCount <= 0) { isMeteorShower = false; eventTimer = 0; }
             }
 
-            // 天の川の更新と衝突判定
             for (let i = milkyWays.length - 1; i >= 0; i--) {
                 let mw = milkyWays[i];
                 mw.timer++;
@@ -649,18 +690,22 @@
         }
 
         function startGame() {
-            isPlaying = true; isPaused = false; score = 0; eventTimer = 0; milkyWayTimer = 0; isMeteorShower = false;
+            isPlaying = true; isPaused = false; score = 0; survivalFrames = 0; eventTimer = 0; milkyWayTimer = 0; isMeteorShower = false;
             enemies = []; particles = []; milkyWays = []; player.trail = [];
             targets = []; 
             player.invincibleTimer = 0;
             shockwave.active = false;
 
             document.getElementById('score').innerText = score;
+            timeEl.innerText = "0.0";
             warningEl.classList.remove('blink');
             pauseScreen.classList.add('hidden');
+            shareModal.classList.add('hidden');
             
             player.x = mouse.x = gameWidth / 2; player.y = mouse.y = gameHeight / 2;
             document.getElementById('startScreen').classList.add('hidden');
+            
+            updateControlsVisibility(); // プレイ中モードへ（右上メニュー非表示化）
             
             spawnTarget();
             for (let i=0; i<4; i++) spawnEnemy();
@@ -673,6 +718,7 @@
             isPlaying = false;
             cancelAnimationFrame(animId);
             warningEl.classList.remove('blink');
+            updateControlsVisibility(); // メニュー表示を戻す
             
             ctx.globalCompositeOperation = 'lighter';
             createParticles(player.x, player.y, '#00e5ff', 50);
@@ -698,7 +744,7 @@
                 else {
                     document.getElementById('title').innerText = "GAME OVER";
                     document.getElementById('title').style.color = "#ff1744";
-                    document.getElementById('msg').innerText = `最終スコア: ${score}\n【Space または ESCキーで一時停止】`;
+                    document.getElementById('msg').innerText = `最終スコア: ${score}\n生存時間: ${(survivalFrames / 60).toFixed(1)}秒\n【Space または ESCキーで一時停止】`;
                     document.getElementById('startBtn').innerText = "RETRY";
                     document.getElementById('startScreen').classList.remove('hidden');
                 }
@@ -707,6 +753,7 @@
         }
 
         ctx.fillStyle = '#050510'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        updateControlsVisibility(); // 初期状態の表示
     </script>
 </body>
 </html>
