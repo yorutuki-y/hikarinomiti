@@ -2,11 +2,25 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>星の道 - Diagonal Fury -</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>星の道</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #050510; font-family: 'Segoe UI', sans-serif; color: #fff; user-select: none; }
-        canvas { display: block; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: #050510; 
+            font-family: 'Segoe UI', sans-serif; 
+            color: #fff; 
+            /* テキスト選択や長押しメニュー、スクロールをブラウザ側で完全に禁止 */
+            user-select: none; 
+            -webkit-user-select: none; 
+            touch-action: none; 
+            -webkit-touch-callout: none; 
+        }
+        canvas { 
+            display: block; 
+            touch-action: none; /* キャンバス上でのスクロール・ズームを禁止 */
+        }
         
         #ui { position: absolute; top: 20px; left: 20px; pointer-events: none; z-index: 100; }
         #scoreBoard { font-size: 26px; font-weight: bold; text-shadow: 0 0 10px #0ff; letter-spacing: 2px; }
@@ -25,6 +39,7 @@
         .zoomBtn {
             background: transparent; color: #00e5ff; border: none; 
             font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s;
+            touch-action: manipulation; /* ボタンのタップ反応を最適化 */
         }
         .zoomBtn:hover { transform: scale(1.3); text-shadow: 0 0 5px #0ff; }
         #zoomLabel { font-size: 14px; font-weight: bold; color: #00e5ff; min-width: 45px; text-align: center; }
@@ -33,6 +48,7 @@
             padding: 8px 15px; font-size: 14px; font-weight: bold; 
             color: #050510; background: #00e5ff; border: none; border-radius: 20px; 
             cursor: pointer; box-shadow: 0 0 10px #0ff; transition: 0.2s; 
+            touch-action: manipulation;
         }
         .controlBtn:hover { transform: scale(1.1); box-shadow: 0 0 20px #00e5ff; }
 
@@ -41,7 +57,7 @@
         h1 { font-size: 55px; color: #e0f7fa; text-shadow: 0 0 20px #0ff; margin-bottom: 10px; letter-spacing: 4px; }
         p { font-size: 18px; color: #b2ebf2; margin-bottom: 30px; text-align: center; line-height: 1.5; }
         
-        button.actionBtn { padding: 12px 35px; font-size: 18px; font-weight: bold; color: #050510; background: #00e5ff; border: none; border-radius: 25px; cursor: pointer; box-shadow: 0 0 15px #0ff; transition: 0.2s; }
+        button.actionBtn { padding: 12px 35px; font-size: 18px; font-weight: bold; color: #050510; background: #00e5ff; border: none; border-radius: 25px; cursor: pointer; box-shadow: 0 0 15px #0ff; transition: 0.2s; touch-action: manipulation; }
         button.actionBtn:hover { transform: scale(1.05); box-shadow: 0 0 25px #00e5ff; }
 
         #warning { position: absolute; top: 20%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; font-weight: bold; color: #ff1744; text-shadow: 0 0 20px #ff1744; letter-spacing: 5px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 50; }
@@ -61,15 +77,15 @@
             <span id="zoomLabel">100%</span>
             <button id="zoomInBtn" class="zoomBtn">＋</button>
         </div>
-        <button id="qualityBtn" class="controlBtn">✨ 高画質モード</button>
-        <button id="fullscreenBtn" class="controlBtn">⛶ 全画面</button>
+        <button id="qualityBtn" class="controlBtn"> 高画質モード</button>
+        <button id="fullscreenBtn" class="controlBtn">全画面</button>
     </div>
     
     <div id="warning">METEOR SHOWER COMING...</div>
 
     <div id="startScreen" class="overlay">
         <h1 id="title">星の道</h1>
-        <p id="msg">光を集め、追跡者や流星群、そして命を刈り取る巨大な「天の川」を生き延びろ！<br>【Space または ESCキーで一時停止】</p>
+        <p id="msg"><br>【Space または ESCキーで一時停止】</p>
         <button id="startBtn" class="actionBtn">START</button>
     </div>
 
@@ -123,14 +139,36 @@
             updateGameSize();
         });
 
+        // マウス操作の座標更新
         window.addEventListener('mousemove', e => { 
             mouse.x = e.clientX / zoomLevel; 
             mouse.y = e.clientY / zoomLevel; 
         });
+
+        /* --- 【誤作動防止の追加ロジック】 --- */
+        
+        // 指を動かしたときにブラウザのスクロールや引っ張り更新を完全にブロック
         window.addEventListener('touchmove', e => { 
-            mouse.x = e.touches[0].clientX / zoomLevel; 
-            mouse.y = e.touches[0].clientY / zoomLevel; 
-        }, {passive: true});
+            if (e.touches.length > 0) {
+                e.preventDefault(); // スクロール機能を無効化
+                mouse.x = e.touches[0].clientX / zoomLevel; 
+                mouse.y = e.touches[0].clientY / zoomLevel; 
+            }
+        }, { passive: false });
+
+        // 画面をタッチした際、ボタン以外の場所でのダブルタップズームなどの誤発動を防ぐ
+        window.addEventListener('touchstart', e => {
+            if (e.target.tagName !== 'BUTTON') {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        // 画面を長押ししたときにブラウザのメニュー（コピーや共有など）が出るのを防ぐ
+        window.addEventListener('contextmenu', e => {
+            e.preventDefault();
+        });
+        
+        /* ---------------------------------- */
 
         let enemies = [], particles = [], milkyWays = [];
         let target = null;
@@ -146,16 +184,16 @@
 
         document.getElementById('qualityBtn').addEventListener('click', () => {
             isHighQuality = !isHighQuality;
-            document.getElementById('qualityBtn').innerText = isHighQuality ? "✨ 高画質モード" : "⚡ 軽量モード";
+            document.getElementById('qualityBtn').innerText = isHighQuality ? " 高画質モード" : " 軽量モード";
         });
 
         document.getElementById('fullscreenBtn').addEventListener('click', () => {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(err => console.warn(err.message));
-                document.getElementById('fullscreenBtn').innerText = "✖ 閉じる";
+                document.getElementById('fullscreenBtn').innerText = " 閉じる";
             } else {
                 document.exitFullscreen();
-                document.getElementById('fullscreenBtn').innerText = "⛶ 全画面";
+                document.getElementById('fullscreenBtn').innerText = " 全画面";
             }
         });
 
@@ -320,10 +358,9 @@
                 milkyWayTimer++;
             }
 
-            // 【変更箇所】トリガーが発生したら、2回連続で spawnMilkyWay() を呼び出す
             if (milkyWayTimer > 700 && !isMeteorShower && eventTimer < 490) { 
-                spawnMilkyWay(); // 1本目
-                spawnMilkyWay(); // 2本目（ほぼ同時）
+                spawnMilkyWay(); 
+                spawnMilkyWay(); 
                 milkyWayTimer = Math.random() * 300; 
             }
 
