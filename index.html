@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>星の道 - Diagonal Fury -</title>
+    <title>星の道</title>
     <style>
         body { 
             margin: 0; 
@@ -76,15 +76,15 @@
             <span id="zoomLabel">100%</span>
             <button id="zoomInBtn" class="zoomBtn">＋</button>
         </div>
-        <button id="qualityBtn" class="controlBtn">✨ 高画質モード</button>
-        <button id="fullscreenBtn" class="controlBtn">⛶ 全画面</button>
+        <button id="qualityBtn" class="controlBtn">高画質モード</button>
+        <button id="fullscreenBtn" class="controlBtn">全画面</button>
     </div>
     
     <div id="warning">METEOR SHOWER COMING...</div>
 
     <div id="startScreen" class="overlay">
         <h1 id="title">星の道</h1>
-        <p id="msg">光を集め、追跡者や流星群、そして命を刈り取る巨大な「天の川」を生き延びろ！<br>【Space または ESCキーで一時停止】</p>
+        <p id="msg"><br>【Space または ESCキーで一時停止】</p>
         <button id="startBtn" class="actionBtn">START</button>
     </div>
 
@@ -180,16 +180,16 @@
 
         document.getElementById('qualityBtn').addEventListener('click', () => {
             isHighQuality = !isHighQuality;
-            document.getElementById('qualityBtn').innerText = isHighQuality ? "✨ 高画質モード" : "⚡ 軽量モード";
+            document.getElementById('qualityBtn').innerText = isHighQuality ? "高画質モード" : "軽量モード";
         });
 
         document.getElementById('fullscreenBtn').addEventListener('click', () => {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(err => console.warn(err.message));
-                document.getElementById('fullscreenBtn').innerText = "✖ 閉じる";
+                document.getElementById('fullscreenBtn').innerText = "閉じる";
             } else {
                 document.exitFullscreen();
-                document.getElementById('fullscreenBtn').innerText = "⛶ 全画面";
+                document.getElementById('fullscreenBtn').innerText = "全画面";
             }
         });
 
