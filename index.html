@@ -71,7 +71,7 @@
 
     <div id="ui">
         <div id="scoreBoard">Score: <span id="score">0</span></div>
-        <div id="timeBoard">Time: <span id="time">0.0</span>s</div>
+        <div id="timeBoard">Time: <span id="time">0.0</span></div>
     </div>
     
     <div id="topControls" class="top-controls">
@@ -99,6 +99,7 @@
         <button id="resumeBtn" class="actionBtn">RESUME</button>
     </div>
 
+    <!-- ゲーム共有用モーダルウィンドウ -->
     <div id="shareModal" class="overlay hidden" style="z-index: 150;">
         <div style="background: rgba(5, 5, 16, 0.95); padding: 30px; border-radius: 20px; border: 2px solid #00e5ff; text-align: center; box-shadow: 0 0 30px rgba(0,229,255,0.5); max-width: 90%; width: 280px;">
             <h2 style="color: #00e5ff; margin: 0 0 10px 0; font-size: 24px; text-shadow: 0 0 10px #0ff;">ゲームを共有</h2>
@@ -147,7 +148,7 @@
         window.addEventListener('resize', resize);
         resize();
 
-        // プレイ中のみメニューを非表示にする制御関数
+        // コントロールメニューの表示/非表示を切り替える関数
         function updateControlsVisibility() {
             if (isPlaying && !isPaused) {
                 topControls.classList.add('hidden');
@@ -227,7 +228,6 @@
 
         window.addEventListener('keydown', e => {
             if ((e.key === 'Escape' || e.key === ' ') && isPlaying) {
-                // 共有画面が開いている時は、再開せずまず共有画面を閉じる
                 if (!shareModal.classList.contains('hidden')) {
                     shareModal.classList.add('hidden');
                     return;
@@ -240,7 +240,7 @@
         function togglePause() {
             if (!isPlaying) return; 
             isPaused = !isPaused;
-            updateControlsVisibility(); // メニュー表示更新
+            updateControlsVisibility(); 
             if (isPaused) {
                 pauseScreen.classList.remove('hidden');
                 cancelAnimationFrame(animId); 
@@ -405,7 +405,6 @@
         function update() {
             if (!isPlaying || isPaused) return;
 
-            // 生存時間の加算とUI描画 (1秒=60フレーム換算)
             survivalFrames++;
             timeEl.innerText = (survivalFrames / 60).toFixed(1);
 
@@ -705,7 +704,7 @@
             player.x = mouse.x = gameWidth / 2; player.y = mouse.y = gameHeight / 2;
             document.getElementById('startScreen').classList.add('hidden');
             
-            updateControlsVisibility(); // プレイ中モードへ（右上メニュー非表示化）
+            updateControlsVisibility(); 
             
             spawnTarget();
             for (let i=0; i<4; i++) spawnEnemy();
@@ -718,7 +717,6 @@
             isPlaying = false;
             cancelAnimationFrame(animId);
             warningEl.classList.remove('blink');
-            updateControlsVisibility(); // メニュー表示を戻す
             
             ctx.globalCompositeOperation = 'lighter';
             createParticles(player.x, player.y, '#00e5ff', 50);
@@ -744,16 +742,19 @@
                 else {
                     document.getElementById('title').innerText = "GAME OVER";
                     document.getElementById('title').style.color = "#ff1744";
-                    document.getElementById('msg').innerText = `最終スコア: ${score}\n生存時間: ${(survivalFrames / 60).toFixed(1)}秒\n【Space または ESCキーで一時停止】`;
+                    document.getElementById('msg').innerText = `最終スコア: ${score}
+生存時間: ${(survivalFrames / 60).toFixed(1)}
+【Space または ESCキーで一時停止】`;
                     document.getElementById('startBtn').innerText = "RETRY";
                     document.getElementById('startScreen').classList.remove('hidden');
+                    updateControlsVisibility(); 
                 }
             }
             renderExplode();
         }
 
         ctx.fillStyle = '#050510'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        updateControlsVisibility(); // 初期状態の表示
+        updateControlsVisibility(); 
     </script>
 </body>
 </html>
