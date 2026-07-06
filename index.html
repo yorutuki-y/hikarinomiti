@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>星の道</title>
+    <title>星の道 - Diagonal Fury -</title>
     <style>
         body { 
             margin: 0; 
@@ -11,7 +11,6 @@
             background: #050510; 
             font-family: 'Segoe UI', sans-serif; 
             color: #fff; 
-            /* テキスト選択や長押しメニュー、スクロールをブラウザ側で完全に禁止 */
             user-select: none; 
             -webkit-user-select: none; 
             touch-action: none; 
@@ -19,7 +18,7 @@
         }
         canvas { 
             display: block; 
-            touch-action: none; /* キャンバス上でのスクロール・ズームを禁止 */
+            touch-action: none; 
         }
         
         #ui { position: absolute; top: 20px; left: 20px; pointer-events: none; z-index: 100; }
@@ -39,7 +38,7 @@
         .zoomBtn {
             background: transparent; color: #00e5ff; border: none; 
             font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s;
-            touch-action: manipulation; /* ボタンのタップ反応を最適化 */
+            touch-action: manipulation;
         }
         .zoomBtn:hover { transform: scale(1.3); text-shadow: 0 0 5px #0ff; }
         #zoomLabel { font-size: 14px; font-weight: bold; color: #00e5ff; min-width: 45px; text-align: center; }
@@ -77,15 +76,15 @@
             <span id="zoomLabel">100%</span>
             <button id="zoomInBtn" class="zoomBtn">＋</button>
         </div>
-        <button id="qualityBtn" class="controlBtn"> 高画質モード</button>
-        <button id="fullscreenBtn" class="controlBtn">全画面</button>
+        <button id="qualityBtn" class="controlBtn">✨ 高画質モード</button>
+        <button id="fullscreenBtn" class="controlBtn">⛶ 全画面</button>
     </div>
     
     <div id="warning">METEOR SHOWER COMING...</div>
 
     <div id="startScreen" class="overlay">
         <h1 id="title">星の道</h1>
-        <p id="msg"><br>【Space または ESCキーで一時停止】</p>
+        <p id="msg">光を集め、追跡者や流星群、そして命を刈り取る巨大な「天の川」を生き延びろ！<br>【Space または ESCキーで一時停止】</p>
         <button id="startBtn" class="actionBtn">START</button>
     </div>
 
@@ -114,6 +113,10 @@
         let zoomLevel = 1.0;
         let gameWidth, gameHeight;
 
+        // 【追加】復活システム用フラグと衝撃波データ
+        let canRevive = true;
+        let shockwave = { active: false, x: 0, y: 0, radius: 0, maxRadius: 0 };
+
         function updateGameSize() {
             gameWidth = canvas.width / zoomLevel;
             gameHeight = canvas.height / zoomLevel;
@@ -139,39 +142,32 @@
             updateGameSize();
         });
 
-        // マウス操作の座標更新
         window.addEventListener('mousemove', e => { 
             mouse.x = e.clientX / zoomLevel; 
             mouse.y = e.clientY / zoomLevel; 
         });
 
-        /* --- 【誤作動防止の追加ロジック】 --- */
-        
-        // 指を動かしたときにブラウザのスクロールや引っ張り更新を完全にブロック
+        // 誤作動防止ロジック
         window.addEventListener('touchmove', e => { 
             if (e.touches.length > 0) {
-                e.preventDefault(); // スクロール機能を無効化
+                e.preventDefault(); 
                 mouse.x = e.touches[0].clientX / zoomLevel; 
                 mouse.y = e.touches[0].clientY / zoomLevel; 
             }
         }, { passive: false });
 
-        // 画面をタッチした際、ボタン以外の場所でのダブルタップズームなどの誤発動を防ぐ
         window.addEventListener('touchstart', e => {
             if (e.target.tagName !== 'BUTTON') {
                 e.preventDefault();
             }
         }, { passive: false });
 
-        // 画面を長押ししたときにブラウザのメニュー（コピーや共有など）が出るのを防ぐ
         window.addEventListener('contextmenu', e => {
             e.preventDefault();
         });
-        
-        /* ---------------------------------- */
 
         let enemies = [], particles = [], milkyWays = [];
-        let target = null;
+        let targets = []; // 【変更】ターゲットを複数管理するため配列化
 
         let eventTimer = 0;
         let isMeteorShower = false;
@@ -184,16 +180,16 @@
 
         document.getElementById('qualityBtn').addEventListener('click', () => {
             isHighQuality = !isHighQuality;
-            document.getElementById('qualityBtn').innerText = isHighQuality ? " 高画質モード" : " 軽量モード";
+            document.getElementById('qualityBtn').innerText = isHighQuality ? "✨ 高画質モード" : "⚡ 軽量モード";
         });
 
         document.getElementById('fullscreenBtn').addEventListener('click', () => {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(err => console.warn(err.message));
-                document.getElementById('fullscreenBtn').innerText = " 閉じる";
+                document.getElementById('fullscreenBtn').innerText = "✖ 閉じる";
             } else {
                 document.exitFullscreen();
-                document.getElementById('fullscreenBtn').innerText = " 全画面";
+                document.getElementById('fullscreenBtn').innerText = "⛶ 全画面";
             }
         });
 
@@ -216,26 +212,40 @@
             }
         }
 
+        // 通常のターゲット生成
         function spawnTarget() {
-            target = { x: 50 + Math.random()*(gameWidth-100), y: 50 + Math.random()*(gameHeight-100), r: 8, pulse: 0 };
+            targets.push({ x: 50 + Math.random()*(gameWidth-100), y: 50 + Math.random()*(gameHeight-100), r: 8, pulse: Math.random()*Math.PI });
         }
 
+        // 【追加】プレイヤーの周囲にターゲットをばらまく関数
+        function spawnTargetAround(cx, cy) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 100 + Math.random() * 120; 
+            const x = Math.max(50, Math.min(gameWidth - 50, cx + Math.cos(angle) * dist));
+            const y = Math.max(50, Math.min(gameHeight - 50, cy + Math.sin(angle) * dist));
+            targets.push({ x, y, r: 8, pulse: Math.random() * Math.PI });
+        }
+
+        // 【変更】スコア100ごとにサイズと速さが上がるように修正
         function spawnEnemy() {
-            const size = 6 + Math.random() * 5;
+            const scoreFactor = Math.floor(score / 100);
+            const size = 6 + Math.random() * 5 + (scoreFactor * 0.5); // 100ごとに0.5サイズUP
             let x, y;
             if (Math.random() < 0.5) { x = Math.random() < 0.5 ? -30 : gameWidth + 30; y = Math.random() * gameHeight; } 
             else { x = Math.random() * gameWidth; y = Math.random() < 0.5 ? -30 : gameHeight + 30; }
             
-            const tx = target ? target.x : player.x;
-            const ty = target ? target.y : player.y;
+            const tx = targets.length > 0 ? targets[0].x : player.x;
+            const ty = targets.length > 0 ? targets[0].y : player.y;
             const angle = Math.atan2(ty - y, tx - x) + (Math.random() - 0.5) * 0.5;
-            const speed = 4 + Math.random() * 3 + (score * 0.001);
+            const speed = 4 + Math.random() * 3 + (scoreFactor * 0.4); // 100ごとに0.4スピードUP
             
             enemies.push({ x, y, r: size, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, isMeteor: false, isBlue: false });
         }
 
+        // 【変更】スコア100ごとにサイズが上がるように修正（青）
         function spawnBlueEnemy() {
-            const size = 5 + Math.random() * 4;
+            const scoreFactor = Math.floor(score / 100);
+            const size = 5 + Math.random() * 4 + (scoreFactor * 0.5);
             let x, y;
             if (Math.random() < 0.5) { x = Math.random() < 0.5 ? -30 : gameWidth + 30; y = Math.random() * gameHeight; } 
             else { x = Math.random() * gameWidth; y = Math.random() < 0.5 ? -30 : gameHeight + 30; }
@@ -263,14 +273,16 @@
         }
 
         function spawnShowerChaser(diagIndex) {
-            const size = 5 + Math.random() * 4;
-            const entryData = createDiagonalEntry(diagIndex, 8, 13);
+            const scoreFactor = Math.floor(score / 100);
+            const size = 5 + Math.random() * 4 + (scoreFactor * 0.5);
+            const entryData = createDiagonalEntry(diagIndex, 8 + scoreFactor * 0.4, 13 + scoreFactor * 0.4);
             enemies.push({
                 x: entryData.x, y: entryData.y, r: size, vx: entryData.vx, vy: entryData.vy,
                 isMeteor: false, isBlue: true, timer: 0, state: 'normal', opacity: 1
             });
         }
 
+        // 【変更】スコア300ごとに太さが上昇し、カラーが青・黄になるよう修正
         function spawnMilkyWay() {
             const cx = gameWidth / 2;
             const cy = gameHeight / 2;
@@ -280,9 +292,14 @@
             const x = cx + Math.cos(angle + Math.PI/2) * offsetDist;
             const y = cy + Math.sin(angle + Math.PI/2) * offsetDist;
 
+            // スコア300ごとに太さ+30
+            const mwWidth = 180 + Math.floor(score / 300) * 30;
+            // 青色か黄色をランダムで決定
+            const colorType = Math.random() < 0.5 ? 'blue' : 'yellow';
+
             milkyWays.push({
-                x: x, y: y, angle: angle, width: 180,
-                state: 'warning', timer: 0, opacity: 0
+                x: x, y: y, angle: angle, width: mwWidth,
+                state: 'warning', timer: 0, opacity: 0, colorType: colorType
             });
         }
 
@@ -324,10 +341,35 @@
             if (e.state === 'normal') {
                 e.state = 'charging';
                 const angleToPlayer = Math.atan2(player.y - e.y, player.x - e.x);
-                const chargeSpeed = 16 + (score * 0.002);
+                // スコア100ごとにチャージ速度アップ
+                const chargeSpeed = 16 + (Math.floor(score / 100) * 0.8);
                 e.vx = Math.cos(angleToPlayer) * chargeSpeed; e.vy = Math.sin(angleToPlayer) * chargeSpeed;
                 createParticles(e.x, e.y, '#00e5ff', 10);
             }
+        }
+
+        // 【追加】被弾時の復活チェック・大技発動ロジック
+        function handlePlayerHit() {
+            if (score >= 1000 && canRevive) {
+                canRevive = false;
+                shockwave.active = true;
+                shockwave.x = player.x;
+                shockwave.y = player.y;
+                shockwave.radius = 0;
+                shockwave.maxRadius = Math.max(gameWidth, gameHeight) * 1.2;
+                
+                // 周りに5個のスコアの玉をばらまく
+                for (let k = 0; k < 5; k++) {
+                    spawnTargetAround(player.x, player.y);
+                }
+                
+                // 緊急回避として画面内の天の川を消去
+                milkyWays = [];
+                createParticles(player.x, player.y, '#00e5ff', 30);
+                return true; // 復活成功
+            }
+            gameOver();
+            return false; // ゲームオーバー
         }
 
         function update() {
@@ -340,6 +382,26 @@
             
             ctx.scale(zoomLevel, zoomLevel);
             ctx.globalCompositeOperation = 'lighter';
+
+            // 【追加】復活の衝撃波エフェクトの更新と敵の撃破
+            if (shockwave.active) {
+                shockwave.radius += 24;
+                ctx.beginPath();
+                ctx.arc(shockwave.x, shockwave.y, shockwave.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(0, 229, 255, ${1 - shockwave.radius / shockwave.maxRadius})`;
+                ctx.lineWidth = 20;
+                ctx.stroke();
+
+                // 範囲内の敵をまとめて倒す
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    let e = enemies[i];
+                    if (distSq(shockwave, e) < (shockwave.radius + e.r) ** 2) {
+                        createParticles(e.x, e.y, e.isBlue ? '#00e5ff' : '#ff7676', 8);
+                        enemies.splice(i, 1);
+                    }
+                }
+                if (shockwave.radius >= shockwave.maxRadius) shockwave.active = false;
+            }
 
             player.x += (mouse.x - player.x) * 0.15;
             player.y += (mouse.y - player.y) * 0.15;
@@ -358,9 +420,12 @@
                 milkyWayTimer++;
             }
 
+            // 【変更】スコア300ごとに同時に出る本数が増加
             if (milkyWayTimer > 700 && !isMeteorShower && eventTimer < 490) { 
-                spawnMilkyWay(); 
-                spawnMilkyWay(); 
+                const mwCount = 2 + Math.floor(score / 300); // 300ごとに+1本
+                for(let k = 0; k < mwCount; k++){
+                    spawnMilkyWay(); 
+                }
                 milkyWayTimer = Math.random() * 300; 
             }
 
@@ -388,13 +453,20 @@
                 const nx = Math.cos(mw.angle) * len;
                 const ny = Math.sin(mw.angle) * len;
 
+                // カラー設定の切り替え
+                const isBlue = mw.colorType === 'blue';
+                const mainColor = isBlue ? `rgba(0, 100, 255, ` : `rgba(255, 150, 0, `;
+                const subColor  = isBlue ? `rgba(100, 220, 255, ` : `rgba(255, 255, 150, `;
+                const glowColor = isBlue ? '#0070ff' : '#ffaa00';
+                const pColor    = isBlue ? '#00bcff' : '#ffea00';
+
                 if (mw.state === 'warning') {
                     mw.opacity = 0.1 + Math.abs(Math.sin(mw.timer * 0.1)) * 0.3; 
                     if (mw.timer >= 120) { mw.state = 'active'; mw.timer = 0; mw.opacity = 1; }
                     
                     ctx.beginPath();
                     ctx.moveTo(mw.x - nx, mw.y - ny); ctx.lineTo(mw.x + nx, mw.y + ny);
-                    ctx.strokeStyle = `rgba(255, 255, 255, ${mw.opacity})`;
+                    ctx.strokeStyle = isBlue ? `rgba(0, 200, 255, ${mw.opacity})` : `rgba(255, 230, 0, ${mw.opacity})`;
                     ctx.lineWidth = mw.width;
                     ctx.stroke();
 
@@ -404,20 +476,24 @@
                         const orthoDist = (Math.random() - 0.5) * mw.width * 0.8; 
                         const px = mw.x + Math.cos(mw.angle) * pDist + Math.cos(mw.angle + Math.PI/2) * orthoDist;
                         const py = mw.y + Math.sin(mw.angle) * pDist + Math.sin(mw.angle + Math.PI/2) * orthoDist;
-                        createParticles(px, py, '#b000ff', 1);
+                        createParticles(px, py, pColor, 1);
                     }
                     if (mw.timer >= 180) { mw.state = 'fading'; mw.timer = 0; }
-                    if (checkMilkyWayCollision(player, mw)) { gameOver(); return; }
+                    
+                    // 【変更】天の川との衝突時に復活チェックを挟む
+                    if (checkMilkyWayCollision(player, mw)) { 
+                        if (handlePlayerHit()) return; else return;
+                    }
 
                     ctx.beginPath();
                     ctx.moveTo(mw.x - nx, mw.y - ny); ctx.lineTo(mw.x + nx, mw.y + ny);
                     
-                    if (isHighQuality) { ctx.shadowBlur = 30; ctx.shadowColor = '#b000ff'; }
+                    if (isHighQuality) { ctx.shadowBlur = 30; ctx.shadowColor = glowColor; }
 
-                    ctx.strokeStyle = `rgba(176, 0, 255, ${mw.opacity * 0.5})`;
+                    ctx.strokeStyle = `${mainColor}${mw.opacity * 0.5})`;
                     ctx.lineWidth = mw.width; ctx.stroke();
 
-                    ctx.strokeStyle = `rgba(200, 100, 255, ${mw.opacity * 0.8})`;
+                    ctx.strokeStyle = `${subColor}${mw.opacity * 0.8})`;
                     ctx.lineWidth = mw.width * 0.5; ctx.stroke();
                     
                     ctx.beginPath();
@@ -432,20 +508,22 @@
                     
                     ctx.beginPath();
                     ctx.moveTo(mw.x - nx, mw.y - ny); ctx.lineTo(mw.x + nx, mw.y + ny);
-                    ctx.strokeStyle = `rgba(176, 0, 255, ${mw.opacity})`;
+                    ctx.strokeStyle = `${mainColor}${mw.opacity})`;
                     ctx.lineWidth = mw.width; ctx.stroke();
                 }
             }
 
-            if (target) {
-                target.pulse += 0.1;
-                drawGlowObj(target.x, target.y, target.r + Math.sin(target.pulse)*2, '#ffea00', '#ffea00', 15);
+            // 【変更】ターゲット複数配列化に伴う更新処理
+            for (let i = targets.length - 1; i >= 0; i--) {
+                let t = targets[i];
+                t.pulse += 0.1;
+                drawGlowObj(t.x, t.y, t.r + Math.sin(t.pulse)*2, '#ffea00', '#ffea00', 15);
 
-                if (distSq(player, target) < (player.radius + target.r) ** 2) {
+                if (distSq(player, t) < (player.radius + t.r) ** 2) {
                     score += 100;
                     document.getElementById('score').innerText = score;
-                    createParticles(target.x, target.y, '#ffea00', 15);
-                    spawnTarget();
+                    createParticles(t.x, t.y, '#ffea00', 15);
+                    targets.splice(i, 1);
                     
                     if (!isMeteorShower) {
                         spawnEnemy();
@@ -454,6 +532,12 @@
                     }
                 }
             }
+            // 画面内からスコアの玉が完全になくなったら1個自動生成
+            if (targets.length === 0) {
+                spawnTarget();
+            }
+
+            const scoreFactor = Math.floor(score / 100);
 
             for (let i = 0; i < enemies.length; i++) {
                 let e = enemies[i];
@@ -461,9 +545,12 @@
                     if (e.state === 'normal') {
                         e.timer++;
                         const angleToPlayer = Math.atan2(player.y - e.y, player.x - e.x);
-                        e.vx += Math.cos(angleToPlayer) * 0.7; e.vy += Math.sin(angleToPlayer) * 0.7;
+                        // スコア100ごとに追尾加速上昇
+                        e.vx += Math.cos(angleToPlayer) * (0.7 + scoreFactor * 0.05); 
+                        e.vy += Math.sin(angleToPlayer) * (0.7 + scoreFactor * 0.05);
                         
-                        const speedLimit = 7.5 + (score * 0.0015);
+                        // スコア100ごとに最高速度制限上昇
+                        const speedLimit = 7.5 + (scoreFactor * 0.4);
                         const currentSpeedSq = e.vx * e.vx + e.vy * e.vy;
                         if (currentSpeedSq > speedLimit * speedLimit) {
                             const currentSpeed = Math.sqrt(currentSpeedSq);
@@ -471,11 +558,12 @@
                         }
                         if (e.timer >= 300) triggerCharge(e);
                     } else if (e.state === 'charging') { e.opacity -= 0.015; }
-                } else if (!e.isMeteor && target) {
-                    const angleToTarget = Math.atan2(target.y - e.y, target.x - e.x);
+                } else if (!e.isMeteor && targets.length > 0) {
+                    const angleToTarget = Math.atan2(targets[0].y - e.y, targets[0].x - e.x);
                     e.vx += Math.cos(angleToTarget) * 0.1; e.vy += Math.sin(angleToTarget) * 0.1;
                     
-                    const speedLimit = 4 + (score * 0.001);
+                    // スコア100ごとに赤の追尾最高速度上昇
+                    const speedLimit = 4 + (scoreFactor * 0.4);
                     const currentSpeedSq = e.vx * e.vx + e.vy * e.vy;
                     if (currentSpeedSq > speedLimit * speedLimit) {
                         const currentSpeed = Math.sqrt(currentSpeedSq);
@@ -529,12 +617,18 @@
                 } else if (e.isMeteor) { drawGlowObj(e.x, e.y, e.r, '#ff5252', '#ff1744', 10); 
                 } else { drawGlowObj(e.x, e.y, e.r, '#d50000', '#ff1744', 8); }
 
-                if (target && !e.isMeteor && !e.isBlue && distSq(e, target) < (e.r + target.r) ** 2) {
-                    createParticles(target.x, target.y, '#ff1744', 15); spawnTarget();
+                if (targets.length > 0 && !e.isMeteor && !e.isBlue && distSq(e, targets[0]) < (e.r + targets[0].r) ** 2) {
+                    createParticles(targets[0].x, targets[0].y, '#ff1744', 15); 
+                    targets.splice(0, 1);
+                    if (targets.length === 0) spawnTarget();
                 }
 
                 let hitRadius = e.isBlue ? e.r * e.opacity : e.r;
-                if (distSq(player, e) < (player.radius + hitRadius - 2) ** 2) { gameOver(); return; }
+                
+                // 【変更】敵との衝突時に復活チェックを挟む
+                if (distSq(player, e) < (player.radius + hitRadius - 2) ** 2) { 
+                    if (handlePlayerHit()) return; else return;
+                }
             }
 
             for (let i = particles.length - 1; i >= 0; i--) {
@@ -560,6 +654,10 @@
         function startGame() {
             isPlaying = true; isPaused = false; score = 0; eventTimer = 0; milkyWayTimer = 0; isMeteorShower = false;
             enemies = []; particles = []; milkyWays = []; player.trail = [];
+            targets = []; 
+            canRevive = true; // 復活権利リセット
+            shockwave.active = false;
+
             document.getElementById('score').innerText = score;
             warningEl.classList.remove('blink');
             pauseScreen.classList.add('hidden');
