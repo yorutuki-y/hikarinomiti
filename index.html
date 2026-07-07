@@ -408,6 +408,59 @@
             survivalFrames++;
             timeEl.innerText = (survivalFrames / 60).toFixed(1);
 
+            if (score >= 100000) {
+                gameClear();
+                return;
+            }
+
+            // ★【追加】ゲームクリア時の処理
+        function gameClear() {
+            isPlaying = false;
+            cancelAnimationFrame(animId);
+            warningEl.classList.remove('blink');
+            
+            ctx.globalCompositeOperation = 'lighter';
+            // クリア演出として金色のパーティクルを大量に生成
+            createParticles(player.x, player.y, '#ffea00', 100);
+            
+            function renderClearExplode() {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.fillStyle = 'rgba(5,5,16,0.2)'; 
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.scale(zoomLevel, zoomLevel);
+                ctx.globalCompositeOperation = 'lighter';
+
+                let active = false;
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i]; p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+                    if (p.life > 0) {
+                        active = true; 
+                        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI*2);
+                        ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fill();
+                    }
+                }
+                ctx.globalAlpha = 1;
+                
+                if (active) {
+                    requestAnimationFrame(renderClearExplode);
+                } else {
+                    // クリア画面のテキスト設定
+                    document.getElementById('title').innerText = "GAME CLEAR!";
+                    document.getElementById('title').style.color = "#00e5ff"; // 水色
+                    document.getElementById('msg').innerText = `おめでとう！星の道を突破した！
+最終スコア: ${score}
+生存時間: ${(survivalFrames / 60).toFixed(1)}秒
+【Space または ESCキーで一時停止】`;
+                    document.getElementById('startBtn').innerText = "PLAY AGAIN";
+                    document.getElementById('startScreen').classList.remove('hidden');
+                    updateControlsVisibility(); 
+                }
+            }
+            renderClearExplode();
+        }
+
             if (player.invincibleTimer > 0) player.invincibleTimer--;
 
             ctx.globalCompositeOperation = 'source-over';
