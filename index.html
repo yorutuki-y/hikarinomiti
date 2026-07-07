@@ -702,30 +702,44 @@ for (let j = i + 1; j < enemies.length; j++) {
             animId = requestAnimationFrame(update);
         }
 
-        function startGame() {
-            isPlaying = true; isPaused = false; score = 0; survivalFrames = 0; eventTimer = 0; milkyWayTimer = 0; isMeteorShower = false;
-            enemies = []; particles = []; milkyWays = []; player.trail = [];
-            targets = []; 
-            player.invincibleTimer = 0;
-            shockwave.active = false;
+function startGame() {
+    isPlaying = true; 
+    isPaused = false; 
+    score = 0; 
+    survivalFrames = 0; 
+    eventTimer = 0; 
+    milkyWayTimer = 0; 
+    isMeteorShower = false;
+    enemies = []; 
+    particles = []; 
+    milkyWays = []; 
+    player.trail = [];
+    targets = []; 
+    
+    // 開始時に5秒間（60フレーム × 5秒 = 300）の無敵時間を設定
+    player.invincibleTimer = 300; 
+    
+    shockwave.active = false;
 
-            document.getElementById('score').innerText = score;
-            timeEl.innerText = "0.0";
-            warningEl.classList.remove('blink');
-            pauseScreen.classList.add('hidden');
-            shareModal.classList.add('hidden');
-            
-            player.x = mouse.x = gameWidth / 2; player.y = mouse.y = gameHeight / 2;
-            document.getElementById('startScreen').classList.add('hidden');
-            
-            updateControlsVisibility(); 
-            
-            spawnTarget();
-            for (let i=0; i<4; i++) spawnEnemy();
-            spawnBlueEnemy(); spawnBlueEnemy(); 
-            
-            update();
-        }
+    document.getElementById('score').innerText = score;
+    timeEl.innerText = "0.0";
+    warningEl.classList.remove('blink');
+    pauseScreen.classList.add('hidden');
+    shareModal.classList.add('hidden');
+    
+    player.x = mouse.x = gameWidth / 2; 
+    player.y = mouse.y = gameHeight / 2;
+    document.getElementById('startScreen').classList.add('hidden');
+    
+    updateControlsVisibility(); 
+    
+    spawnTarget();
+    for (let i = 0; i < 4; i++) spawnEnemy();
+    spawnBlueEnemy(); 
+    spawnBlueEnemy(); 
+    
+    update();
+}
 
         function gameOver() {
             isPlaying = false;
