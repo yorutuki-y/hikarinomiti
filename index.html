@@ -398,6 +398,7 @@ function spawnMilkyWay() {
         }
 
         function handlePlayerHit() {
+
             if (score >= 1000) {
                 score -= 1000; 
                 document.getElementById('score').innerText = score; 
@@ -883,6 +884,7 @@ function startGame() {
 生存時間: ${(survivalFrames / 60).toFixed(1)}
 【Space または ESCキーで一時停止】`;
                     document.getElementById('startBtn').innerText = "RETRY";
+                    document.getElementById('endlessBtn').style.display = "none";
                     document.getElementById('startScreen').classList.remove('hidden');
                     updateControlsVisibility(); 
                 }
