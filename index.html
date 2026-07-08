@@ -614,7 +614,7 @@ if (player.invincibleTimer <= 0 && checkMilkyWayCollision(player, mw)) {
                 drawGlowObj(t.x, t.y, t.r + Math.sin(t.pulse)*2, '#ffea00', '#ffea00', 15);
 
                 if (distSq(player, t) < (player.radius + t.r) ** 2) {
-                    score += 1000;
+                    score += 100;
                     document.getElementById('score').innerText = score;
                     createParticles(t.x, t.y, '#ffea00', 15);
                     targets.splice(i, 1);
