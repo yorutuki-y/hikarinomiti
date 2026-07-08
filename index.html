@@ -87,10 +87,13 @@
     
     <div id="warning">METEOR SHOWER COMING...</div>
 
-    <div id="startScreen" class="overlay">
+<div id="startScreen" class="overlay">
         <h1 id="title">星の道</h1>
         <p id="msg"><br>【Space または ESCキーで一時停止】</p>
-        <button id="startBtn" class="actionBtn">START</button>
+        <div style="display: flex; gap: 15px;">
+            <button id="startBtn" class="actionBtn">START</button>
+            <button id="endlessBtn" class="actionBtn" style="display: none; background: #ffea00; box-shadow: 0 0 15px #ffea00;">ENDLESS</button>
+        </div>
     </div>
 
     <div id="pauseScreen" class="overlay hidden">
@@ -126,6 +129,7 @@
         let isPlaying = false;
         let isPaused = false;
         let isHighQuality = true;
+        let isEndless = false;
 
         const player = { x: 0, y: 0, radius: 10, trail: [], invincibleTimer: 0 };
         let mouse = { x: 0, y: 0 };
@@ -200,7 +204,15 @@
         let meteorDirectionIndex = 0;
         let milkyWayTimer = 0;
 
-        document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('startBtn').addEventListener('click', startGame);
+        // ★【追加】エンドレスボタンが押されたら、画面を隠してゲームの更新（ループ）を再開する
+        document.getElementById('endlessBtn').addEventListener('click', () => {
+            document.getElementById('startScreen').classList.add('hidden');
+            isEndless = true;
+            isPlaying = true;
+            updateControlsVisibility();
+            update(); // ゲームループを再開
+        });
         document.getElementById('resumeBtn').addEventListener('click', togglePause);
         
         // 共有モーダルのイベント
@@ -415,10 +427,12 @@ function spawnMilkyWay() {
             survivalFrames++;
             timeEl.innerText = (survivalFrames / 60).toFixed(1);
 
-            if (score >= 100000) {
+            // ★【変更】スコアが100000以上、かつ「エンドレスモードではない時」だけクリアにする
+            if (score >= 10000 && !isEndless) {
                 gameClear();
                 return;
             }
+
 
             // ★【追加】ゲームクリア時の処理
         function gameClear() {
@@ -450,7 +464,7 @@ function spawnMilkyWay() {
                 }
                 ctx.globalAlpha = 1;
                 
-                if (active) {
+if (active) {
                     requestAnimationFrame(renderClearExplode);
                 } else {
                     // クリア画面のテキスト設定
@@ -458,13 +472,16 @@ function spawnMilkyWay() {
                     document.getElementById('title').style.color = "#00e5ff"; // 水色
                     document.getElementById('msg').innerText = `おめでとう！星の道を突破した！
 最終スコア: ${score}
-生存時間: ${(survivalFrames / 60).toFixed(1)}
+生存時間: ${(survivalFrames / 60).toFixed(1)}秒
 【Space または ESCキーで一時停止】`;
                     document.getElementById('startBtn').innerText = "PLAY AGAIN";
+                    
+                    // ★【追加】クリア時のみエンドレスボタンを表示する
+                    document.getElementById('endlessBtn').style.display = "inline-block";
+
                     document.getElementById('startScreen').classList.remove('hidden');
                     updateControlsVisibility(); 
-                }
-            }
+                }            }
             renderClearExplode();
         }
 
@@ -615,6 +632,7 @@ if (player.invincibleTimer <= 0 && checkMilkyWayCollision(player, mw)) {
 
                 if (distSq(player, t) < (player.radius + t.r) ** 2) {
                     score += 100;
+                    //スコアの増える量
                     document.getElementById('score').innerText = score;
                     createParticles(t.x, t.y, '#ffea00', 15);
                     targets.splice(i, 1);
@@ -801,6 +819,11 @@ function startGame() {
     milkyWays = []; 
     player.trail = [];
     targets = []; 
+    isEndless = false;
+
+    document.getElementById('endlessBtn').style.display = "none";
+
+            document.getElementById('score').innerText = score;
     
     // 開始時に5秒間（60フレーム × 5秒 = 300）の無敵時間を設定
     player.invincibleTimer = 300; 
